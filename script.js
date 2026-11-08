@@ -10,24 +10,18 @@ const VIDEO_POSTER = "";
 // Link do checkout da Cakto. Ex.: "https://pay.cakto.com.br/XXXXXX"
 const CHECKOUT_URL = "";
 
-// Galeria de resultados. Coloque as capas verticais (9:16) na pasta assets
-// com os nomes abaixo; enquanto não existirem, aparece um placeholder.
+// Galeria de resultados: aparece o preview real do Instagram/Facebook (o post precisa ser público).
 const VIDEOS = [
-  { platform: "Instagram", views: "5,1 mi", url: "https://www.instagram.com/reel/DfXUo4hEcki/", cover: "assets/capa-1.jpg" },
-  { platform: "Instagram", views: "532 mil", url: "https://www.instagram.com/reel/DfYIwjUCYSR/", cover: "assets/capa-2.jpg" },
-  { platform: "Instagram", views: "487 mil", url: "https://www.instagram.com/reel/DfabEfRCNa5/", cover: "assets/capa-3.jpg" },
-  { platform: "Instagram", views: "212 mil", url: "https://www.instagram.com/reel/DfajyC7nxJX/", cover: "assets/capa-4.jpg" },
-  { platform: "Facebook", views: "503 mil", url: "https://www.facebook.com/reel/1479493334137975", cover: "assets/capa-5.jpg" },
+  { platform: "Instagram", views: "5,1 mi", url: "https://www.instagram.com/reel/DfXUo4hEcki/" },
+  { platform: "Instagram", views: "532 mil", url: "https://www.instagram.com/reel/DfYIwjUCYSR/" },
+  { platform: "Instagram", views: "487 mil", url: "https://www.instagram.com/reel/DfabEfRCNa5/" },
+  { platform: "Instagram", views: "212 mil", url: "https://www.instagram.com/reel/DfajyC7nxJX/" },
+  { platform: "Facebook", views: "503 mil", url: "https://www.facebook.com/reel/1479493334137975" },
 ];
 
 /* ========================================================= */
 
 document.documentElement.classList.add("js");
-
-const ICONS = {
-  Instagram: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>',
-  Facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M24 12a12 12 0 1 0-13.9 11.9v-8.4H7.1V12h3V9.4c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.4A12 12 0 0 0 24 12z"/></svg>',
-};
 
 // Checkout: só aceita https; sem link, os botões levam para a seção da oferta.
 function setupCheckout() {
@@ -64,25 +58,29 @@ function setupPlayer() {
 
 function renderGallery() {
   const list = document.querySelector(".js-gallery");
-  list.innerHTML = VIDEOS.map((v, i) => `
-    <li class="reveal">
-      <a class="reel reel--${v.platform.toLowerCase()}" href="${v.url}" target="_blank" rel="noopener"
-         aria-label="Assistir vídeo no ${v.platform}: ${v.views} de visualizações (abre em nova aba)">
-        <span class="reel__ph">${ICONS[v.platform] || ""}</span>
-        <img src="${v.cover}" alt="" loading="lazy" decoding="async" width="270" height="480" data-i="${i}">
-        <span class="reel__info">
-          <span class="reel__views">${v.views}</span>
-          <span class="reel__net">visualizações · ${v.platform}</span>
-        </span>
-      </a>
+  list.innerHTML = VIDEOS.map((v) => `
+    <li class="embed reveal">
+      <span class="embed__label">${v.views} de views · ${v.platform}</span>
+      <div class="embed__frame">${v.platform === "Facebook"
+        ? `<iframe class="embed__fb" src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v.url)}&show_text=false&width=340" loading="lazy" title="Vídeo no Facebook com ${v.views} de views" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>`
+        : `<blockquote class="instagram-media" data-instgrm-permalink="${v.url}" data-instgrm-version="14"><a href="${v.url}" target="_blank" rel="noopener">Ver o vídeo no Instagram (${v.views} de views)</a></blockquote>`}
+      </div>
     </li>`).join("");
 
-  // Capa ausente: remove a imagem e deixa o placeholder.
-  list.querySelectorAll("img").forEach((img) => {
-    const drop = () => img.remove();
-    if (img.complete && img.naturalWidth === 0) drop();
-    else img.addEventListener("error", drop, { once: true });
-  });
+  // Script oficial do Instagram (~1 MB) só carrega perto da galeria, para o topo abrir rápido.
+  const loadInstagram = () => {
+    const s = document.createElement("script");
+    s.src = "https://www.instagram.com/embed.js";
+    s.async = true;
+    document.body.append(s);
+  };
+  if (!("IntersectionObserver" in window)) return loadInstagram();
+  const io = new IntersectionObserver((entries) => {
+    if (!entries[0].isIntersecting) return;
+    io.disconnect();
+    loadInstagram();
+  }, { rootMargin: "800px 0px" });
+  io.observe(list);
 }
 
 function setupReveal() {
