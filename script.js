@@ -3,9 +3,9 @@
    ========================================================= */
 
 // Link do vídeo de apresentação (MP4/WebM). Ex.: "assets/apresentacao.mp4"
-const VIDEO_URL = "https://app.obaflix.online/Video_apresentacao_Videos_com_IA.mp4";
+const VIDEO_URL = "assets/apresentacao.mp4";
 // Capa do vídeo antes de dar play (opcional). Ex.: "assets/capa-apresentacao.jpg"
-const VIDEO_POSTER = "";
+const VIDEO_POSTER = "assets/apresentacao.jpg";
 
 // Link do checkout da Cakto. Ex.: "https://pay.cakto.com.br/XXXXXX"
 const CHECKOUT_URL = "https://pay.cakto.com.br/36kmwmy_1297578";
