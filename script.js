@@ -3,20 +3,18 @@
    ========================================================= */
 
 // Link do vídeo de apresentação (MP4/WebM). Ex.: "assets/apresentacao.mp4"
-const VIDEO_URL = "";
+const VIDEO_URL = "https://app.obaflix.online/Video_apresentacao_Videos_com_IA.mp4";
 // Capa do vídeo antes de dar play (opcional). Ex.: "assets/capa-apresentacao.jpg"
 const VIDEO_POSTER = "";
 
 // Link do checkout da Cakto. Ex.: "https://pay.cakto.com.br/XXXXXX"
-const CHECKOUT_URL = "";
+const CHECKOUT_URL = "https://pay.cakto.com.br/36kmwmy_1297578";
 
-// Galeria de resultados: aparece o preview real do Instagram/Facebook (o post precisa ser público).
+// Carrossel de resultados: vídeos verticais (9:16) na pasta assets.
 const VIDEOS = [
-  { platform: "Instagram", views: "5,1 mi", url: "https://www.instagram.com/reel/DfXUo4hEcki/" },
-  { platform: "Instagram", views: "532 mil", url: "https://www.instagram.com/reel/DfYIwjUCYSR/" },
-  { platform: "Instagram", views: "487 mil", url: "https://www.instagram.com/reel/DfabEfRCNa5/" },
-  { platform: "Instagram", views: "212 mil", url: "https://www.instagram.com/reel/DfajyC7nxJX/" },
-  { platform: "Facebook", views: "503 mil", url: "https://www.facebook.com/reel/1479493334137975" },
+  { views: "5,1 mi", label: "o mistério do número 3", src: "assets/v-numero3.mp4", poster: "assets/v-numero3.jpg" },
+  { views: "534 mil", label: "o homem que viveu 969 anos", src: "assets/v-matusalem.mp4", poster: "assets/v-matusalem.jpg" },
+  { views: "490 mil", label: "os dois Judas", src: "assets/v-judas.mp4", poster: "assets/v-judas.jpg" },
 ];
 
 /* ========================================================= */
@@ -46,41 +44,92 @@ function setupPlayer() {
   box.dataset.state = "ready";
   play.disabled = false;
 
-  play.addEventListener("click", () => {
-    video.controls = true;
-    video.play().catch(() => {}); // navegador pode bloquear; os controles continuam disponíveis
-  });
+  // Sem barra de controles: clicar no vídeo (ou no botão) só reproduz/pausa.
+  const toggle = () => (video.paused ? video.play().catch(() => {}) : video.pause());
+  play.addEventListener("click", toggle);
+  video.addEventListener("click", toggle);
   video.addEventListener("play", () => {
     box.dataset.state = "playing";
-    video.controls = true;
+    play.setAttribute("aria-label", "Pausar vídeo de apresentação");
+  });
+  video.addEventListener("pause", () => {
+    box.dataset.state = "ready";
+    play.setAttribute("aria-label", "Reproduzir vídeo de apresentação");
   });
 }
 
-function renderGallery() {
-  const list = document.querySelector(".js-gallery");
-  list.innerHTML = VIDEOS.map((v) => `
-    <li class="embed reveal">
-      <span class="embed__label">${v.views} de views · ${v.platform}</span>
-      <div class="embed__frame">${v.platform === "Facebook"
-        ? `<iframe class="embed__fb" src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v.url)}&show_text=false&width=340" loading="lazy" title="Vídeo no Facebook com ${v.views} de views" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>`
-        : `<blockquote class="instagram-media" data-instgrm-permalink="${v.url}" data-instgrm-version="14"><a href="${v.url}" target="_blank" rel="noopener">Ver o vídeo no Instagram (${v.views} de views)</a></blockquote>`}
-      </div>
-    </li>`).join("");
+const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 
-  // Script oficial do Instagram (~1 MB) só carrega perto da galeria, para o topo abrir rápido.
-  const loadInstagram = () => {
-    const s = document.createElement("script");
-    s.src = "https://www.instagram.com/embed.js";
-    s.async = true;
-    document.body.append(s);
+// Carrossel: o da frente toca mudo em loop; arrastar ou tocar num de trás traz ele pra frente.
+function setupPhones() {
+  const box = document.querySelector(".js-phones");
+  const snd = box.querySelector(".js-snd");
+  const sndLabel = snd.querySelector("span");
+  const dotsBox = box.querySelector(".js-dots");
+  const hero = document.querySelector(".player__video");
+
+  box.insertAdjacentHTML("afterbegin", VIDEOS.map((v, i) => `
+    <div class="phone" aria-label="Vídeo ${i + 1}: ${v.label}, ${v.views} de views">
+      <video src="${v.src}" poster="${v.poster}" muted loop playsinline preload="none"></video>
+      <span class="phone__views">${EYE}<b>${v.views}</b>&nbsp;views</span>
+      <span class="phone__lab">${v.label}</span>
+    </div>`).join(""));
+  dotsBox.innerHTML = VIDEOS.map((v, i) => `<button type="button" aria-label="Mostrar vídeo ${i + 1}: ${v.label}"></button>`).join("");
+
+  const phones = [...box.querySelectorAll(".phone")];
+  const videos = phones.map((p) => p.querySelector("video"));
+  const dots = [...dotsBox.children];
+  const n = phones.length;
+  let cur = 0, sound = false, visible = false;
+
+  const sync = () => {
+    videos.forEach((v, k) => {
+      v.muted = !(sound && k === cur);
+      if (k === cur && visible) v.play().catch(() => {});
+      else v.pause();
+    });
+    snd.setAttribute("aria-pressed", sound);
+    sndLabel.textContent = sound ? "som ligado" : "toque para ouvir";
   };
-  if (!("IntersectionObserver" in window)) return loadInstagram();
-  const io = new IntersectionObserver((entries) => {
-    if (!entries[0].isIntersecting) return;
-    io.disconnect();
-    loadInstagram();
-  }, { rootMargin: "800px 0px" });
-  io.observe(list);
+  const setSound = (on) => {
+    sound = on;
+    if (on) { videos[cur].currentTime = 0; if (hero) hero.pause(); }
+    sync();
+  };
+  const go = (i) => {
+    cur = (i + n) % n;
+    phones.forEach((p, k) => {
+      const d = (k - cur + n) % n;
+      p.className = "phone " + (d === 0 ? "pos-c" : d === 1 ? "pos-r" : d === n - 1 ? "pos-l" : "pos-h");
+    });
+    dots.forEach((d, k) => d.setAttribute("aria-current", k === cur));
+    if (sound) videos[cur].currentTime = 0;
+    sync();
+  };
+
+  snd.addEventListener("click", () => setSound(!sound));
+  dots.forEach((d, k) => d.addEventListener("click", () => go(k)));
+  if (hero) hero.addEventListener("play", () => setSound(false)); // nunca dois áudios ao mesmo tempo
+
+  let sx = null, sy = 0;
+  box.addEventListener("pointerdown", (e) => { if (!e.target.closest(".phones__ctrl")) { sx = e.clientX; sy = e.clientY; } });
+  box.addEventListener("pointercancel", () => { sx = null; });
+  box.addEventListener("pointerup", (e) => {
+    if (sx === null) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    sx = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) return go(cur + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
+    const k = phones.indexOf(e.target.closest(".phone"));
+    if (k === -1) return;
+    k === cur ? setSound(!sound) : go(k);
+  });
+
+  // Só baixa e toca quando o carrossel está na tela.
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => { visible = entries[0].isIntersecting; sync(); }, { threshold: 0.25 }).observe(box);
+  } else visible = true;
+  go(0);
 }
 
 function setupReveal() {
@@ -116,7 +165,7 @@ function setupStickyCta() {
 }
 
 document.querySelector(".js-year").textContent = new Date().getFullYear();
-renderGallery();
+setupPhones();
 setupCheckout();
 setupPlayer();
 setupReveal();
