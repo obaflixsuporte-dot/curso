@@ -7,8 +7,12 @@ const VIDEO_URL = "assets/apresentacao.mp4";
 // Capa do vídeo antes de dar play (opcional). Ex.: "assets/capa-apresentacao.jpg"
 const VIDEO_POSTER = "assets/apresentacao.jpg";
 
-// Link do checkout da Cakto. Ex.: "https://pay.cakto.com.br/XXXXXX"
-const CHECKOUT_URL = "https://pay.cakto.com.br/36kmwmy_1297578";
+// Links de checkout da Cakto de cada plano.
+const PLANOS = {
+  manual: "https://pay.cakto.com.br/qzj3yyy_1301898",
+  completo: "https://pay.cakto.com.br/36kmwmy_1297578",
+  youtube: "https://pay.cakto.com.br/pi4rjbf_1301908",
+};
 
 // Carrossel de resultados: vídeos verticais (9:16) na pasta assets.
 const VIDEOS = [
@@ -21,13 +25,12 @@ const VIDEOS = [
 
 document.documentElement.classList.add("js");
 
-// Checkout: só aceita https; sem link, os botões levam para a seção da oferta.
+// Botões dos planos: só aceita https; sem link, ficam na seção de planos.
 function setupCheckout() {
-  const ok = /^https:\/\//i.test(CHECKOUT_URL);
-  if (!ok) console.warn("CHECKOUT_URL vazio ou inválido: botões apontam para #comece-agora.");
-  document.querySelectorAll(".js-cta").forEach((a) => {
-    if (!ok) return;
-    a.href = CHECKOUT_URL;
+  document.querySelectorAll(".js-plano").forEach((a) => {
+    const url = PLANOS[a.dataset.plano];
+    if (!/^https:\/\//i.test(url || "")) return console.warn(`Link do plano "${a.dataset.plano}" vazio ou inválido.`);
+    a.href = url;
     a.target = "_blank";
     a.rel = "noopener";
   });
