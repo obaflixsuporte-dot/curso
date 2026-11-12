@@ -237,6 +237,12 @@ img, svg, video { display: block; max-width: 100%; }
 .band--dark .fit__list--no li::before { border-color: rgba(243, 236, 217, .5); }
 
 /* Planos */
+.countdown { display: inline-flex; align-items: center; gap: .5rem; margin: 0; padding: .3rem .9rem; border: 2px solid var(--tinta); border-radius: 999px; background: var(--bege-2); font-weight: 700; font-variant-numeric: tabular-nums; box-shadow: 3px 3px 0 var(--tinta); }
+.countdown__label { font-family: var(--display); font-weight: 400; letter-spacing: .05em; text-transform: uppercase; color: var(--laranja-escuro); }
+.countdown.is-urgent { background: var(--sol); animation: pulso 1.6s ease-in-out infinite; }
+.countdown.is-urgent .countdown__label { color: var(--tinta); }
+.countdown.is-urgent .countdown__label::before { content: "Últimos dias · "; }
+@keyframes pulso { 50% { transform: scale(1.04); } }
 .plans__head { display: grid; justify-items: center; text-align: center; gap: .9rem; max-width: 640px; margin: 0 auto clamp(2rem, 4vw, 3rem); }
 .plans { display: grid; grid-template-columns: 1fr 1.12fr 1fr; gap: clamp(1rem, 2.4vw, 1.75rem); align-items: center; }
 .plan {
@@ -353,7 +359,7 @@ img, svg, video { display: block; max-width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .tape__track { animation: none; }
+  .tape__track, .countdown.is-urgent { animation: none; }
   * { transition: none !important; }
   .js .reveal { opacity: 1; transform: none; }
 }

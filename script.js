@@ -7,6 +7,9 @@ const VIDEO_URL = "assets/apresentacao.mp4";
 // Capa do vídeo antes de dar play (opcional). Ex.: "assets/capa-apresentacao.jpg"
 const VIDEO_POSTER = "assets/apresentacao.jpg";
 
+// Fim da Black Friday (horário de Brasília). Depois dessa hora, selos, contagem e "de R$ 197" somem sozinhos.
+const BLACK_FRIDAY_FIM = "2026-11-25T23:59:59-03:00";
+
 // Links de checkout da Cakto de cada plano.
 const PLANOS = {
   manual: "https://pay.cakto.com.br/qzj3yyy_1301898",
@@ -16,7 +19,7 @@ const PLANOS = {
 
 // Carrossel de resultados: vídeos verticais (9:16) na pasta assets.
 const VIDEOS = [
-  { views: "5,1 mi", label: "o mistério do número 3", src: "assets/v-numero3.mp4", poster: "assets/v-numero3.jpg" },
+  { views: "7,3 mi", label: "o mistério do número 3", src: "assets/v-numero3.mp4", poster: "assets/v-numero3.jpg" },
   { views: "534 mil", label: "o homem que viveu 969 anos", src: "assets/v-matusalem.mp4", poster: "assets/v-matusalem.jpg" },
   { views: "490 mil", label: "os dois Judas", src: "assets/v-judas.mp4", poster: "assets/v-judas.jpg" },
 ];
@@ -34,6 +37,22 @@ function setupCheckout() {
     a.target = "_blank";
     a.rel = "noopener";
   });
+}
+
+// Contagem regressiva da Black Friday; nos últimos 3 dias ganha destaque.
+function setupCountdown() {
+  const fim = new Date(BLACK_FRIDAY_FIM).getTime();
+  const els = [...document.querySelectorAll(".js-countdown")];
+  const pad = (n) => String(n).padStart(2, "0");
+  const tick = () => {
+    const ms = fim - Date.now();
+    if (!(ms > 0)) { document.querySelectorAll(".js-bf").forEach((el) => (el.hidden = true)); return clearInterval(timer); }
+    const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    const txt = `${d > 0 ? `${d}d ` : ""}${pad(h)}h ${pad(m)}m ${pad(s % 60)}s`;
+    els.forEach((el) => { el.querySelector(".js-cd-time").textContent = txt; el.classList.toggle("is-urgent", d < 3); });
+  };
+  const timer = setInterval(tick, 1000);
+  tick();
 }
 
 function setupPlayer() {
@@ -170,6 +189,7 @@ function setupStickyCta() {
 document.querySelector(".js-year").textContent = new Date().getFullYear();
 setupPhones();
 setupCheckout();
+setupCountdown();
 setupPlayer();
 setupReveal();
 setupStickyCta();
