@@ -2,82 +2,137 @@
    CONFIGURAÇÕES — edite só este bloco
    ========================================================= */
 
-// Link do vídeo de apresentação (MP4/WebM). Ex.: "assets/apresentacao.mp4"
-const VIDEO_URL = "assets/apresentacao.mp4";
-// Capa do vídeo antes de dar play (opcional). Ex.: "assets/capa-apresentacao.jpg"
-const VIDEO_POSTER = "assets/apresentacao.jpg";
+// Link de checkout da aula (R$ 47) na nova plataforma de pagamento.
+// Vazio = botões levam à oferta e mostram "pagamento em configuração". Não publique sem preencher.
+const CHECKOUT_URL = "";
 
-// Fim da Black Friday (horário de Brasília). Depois dessa hora, selos, contagem e "de R$ 197" somem sozinhos.
-const BLACK_FRIDAY_FIM = "2026-11-25T23:59:59-03:00";
-
-// Links de checkout da Cakto de cada plano.
-const PLANOS = {
-  manual: "https://pay.cakto.com.br/qzj3yyy_1301898",
-  completo: "https://pay.cakto.com.br/36kmwmy_1297578",
-  youtube: "https://pay.cakto.com.br/pi4rjbf_1301908",
+// Vídeo do topo. Quando o novo vídeo de vendas ficar pronto, troque src/poster e a legenda.
+// vertical: true para 9:16 (celular), false para 16:9.
+const VIDEO_TOPO = {
+  src: "assets/v-numero3.mp4",
+  poster: "assets/v-numero3.jpg",
+  vertical: true,
+  legenda: "Vídeo real do nosso perfil: 7,3 mi de visualizações",
 };
 
-// Carrossel de resultados: vídeos verticais (9:16) na pasta assets.
+// Carrossel de resultados: vídeos verticais (9:16) na pasta assets. Use só números comprovados.
 const VIDEOS = [
   { views: "7,3 mi", label: "o mistério do número 3", src: "assets/v-numero3.mp4", poster: "assets/v-numero3.jpg" },
   { views: "534 mil", label: "o homem que viveu 969 anos", src: "assets/v-matusalem.mp4", poster: "assets/v-matusalem.jpg" },
   { views: "490 mil", label: "os dois Judas", src: "assets/v-judas.mp4", poster: "assets/v-judas.jpg" },
 ];
 
+// Medição (opcional). Com um ID preenchido, aparece o aviso de cookies e a ferramenta só carrega após "Aceitar".
+const GA4_ID = ""; // ex.: "G-XXXXXXXXXX"
+
 /* ========================================================= */
 
 document.documentElement.classList.add("js");
 
-// Botões dos planos: só aceita https; sem link, ficam na seção de planos.
+// ---- Medição do funil: eventos vão para window.dataLayer (e para o GA4, se configurado) ----
+window.dataLayer = window.dataLayer || [];
+function track(evento, dados = {}) {
+  window.dataLayer.push({ event: evento, ...dados });
+  if (typeof window.gtag === "function") window.gtag("event", evento, dados);
+}
+
+// UTMs da visita: guardadas na sessão e repassadas ao checkout, para a plataforma registrar a origem da compra.
+const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+function utms() {
+  const q = new URLSearchParams(location.search);
+  let salvo = {};
+  try { salvo = JSON.parse(sessionStorage.getItem("utms") || "{}"); } catch {}
+  const atuais = Object.fromEntries(UTM_KEYS.filter((k) => q.get(k)).map((k) => [k, q.get(k)]));
+  const todos = Object.keys(atuais).length ? atuais : salvo;
+  try { sessionStorage.setItem("utms", JSON.stringify(todos)); } catch {}
+  return todos;
+}
+
 function setupCheckout() {
-  document.querySelectorAll(".js-plano").forEach((a) => {
-    const url = PLANOS[a.dataset.plano];
-    if (!/^https:\/\//i.test(url || "")) return console.warn(`Link do plano "${a.dataset.plano}" vazio ou inválido.`);
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener";
+  const origem = utms();
+  const ok = /^https:\/\//i.test(CHECKOUT_URL);
+  let destino = "";
+  if (ok) {
+    const u = new URL(CHECKOUT_URL);
+    Object.entries(origem).forEach(([k, v]) => u.searchParams.set(k, v));
+    destino = u.toString();
+  } else {
+    console.warn("CHECKOUT_URL vazio: os botões levam à oferta. Não publique sem configurar.");
+    document.querySelector(".js-checkout-pendente").hidden = false;
+    document.querySelector(".js-checkout-final").setAttribute("aria-disabled", "true");
+  }
+  document.querySelectorAll(".js-cta").forEach((a) => {
+    if (ok) { a.href = destino; a.rel = "noopener"; }
+    a.addEventListener("click", (e) => {
+      track("cta_click", { local: a.dataset.local });
+      if (ok) track("begin_checkout", { local: a.dataset.local, value: 47, currency: "BRL" });
+      else if (a.classList.contains("js-checkout-final")) e.preventDefault();
+    });
   });
+  // A compra só é registrada pela plataforma de pagamento, nunca por clique.
 }
 
-// Contagem regressiva da Black Friday; nos últimos 3 dias ganha destaque.
-function setupCountdown() {
-  const fim = new Date(BLACK_FRIDAY_FIM).getTime();
-  const els = [...document.querySelectorAll(".js-countdown")];
-  const pad = (n) => String(n).padStart(2, "0");
-  const tick = () => {
-    const ms = fim - Date.now();
-    if (!(ms > 0)) { document.querySelectorAll(".js-bf").forEach((el) => (el.hidden = true)); return clearInterval(timer); }
-    const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
-    const txt = `${d > 0 ? `${d}d ` : ""}${pad(h)}h ${pad(m)}m ${pad(s % 60)}s`;
-    els.forEach((el) => { el.querySelector(".js-cd-time").textContent = txt; el.classList.toggle("is-urgent", d < 3); });
+// Quantas pessoas chegam a ver a oferta (para saber se abandonam antes de ler o preço).
+function setupFunil() {
+  track("landing_view", utms());
+  const preco = document.querySelector(".compra__preco"); // o preço é pequeno: aparece inteiro em qualquer tela
+  if (!("IntersectionObserver" in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    if (!entries[0].isIntersecting) return;
+    track("view_offer");
+    io.disconnect();
+  }, { threshold: 1 });
+  io.observe(preco);
+}
+
+// Aviso de cookies: só existe se houver ferramenta de medição configurada.
+function setupConsent() {
+  if (!GA4_ID) return;
+  const box = document.querySelector(".js-consent");
+  const carregar = () => {
+    const s = document.createElement("script");
+    s.async = true;
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA4_ID)}`;
+    document.head.append(s);
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag("js", new Date());
+    window.gtag("config", GA4_ID);
   };
-  const timer = setInterval(tick, 1000);
-  tick();
+  let escolha = null;
+  try { escolha = localStorage.getItem("consent"); } catch {}
+  if (escolha === "sim") return carregar();
+  if (escolha === "nao") return;
+  box.hidden = false;
+  const decidir = (v) => { try { localStorage.setItem("consent", v); } catch {} box.hidden = true; if (v === "sim") carregar(); };
+  box.querySelector(".js-consent-sim").addEventListener("click", () => decidir("sim"));
+  box.querySelector(".js-consent-nao").addEventListener("click", () => decidir("nao"));
 }
 
-function setupPlayer() {
-  const box = document.querySelector(".player");
-  const video = box.querySelector("video");
-  const play = box.querySelector(".player__play");
-  if (!VIDEO_URL) return; // continua com o placeholder "em breve"
-
-  video.src = VIDEO_URL;
-  if (VIDEO_POSTER) video.poster = VIDEO_POSTER;
-  box.dataset.state = "ready";
-  play.disabled = false;
-
-  // Sem barra de controles: clicar no vídeo (ou no botão) só reproduz/pausa.
-  const toggle = () => (video.paused ? video.play().catch(() => {}) : video.pause());
-  play.addEventListener("click", toggle);
-  video.addEventListener("click", toggle);
-  video.addEventListener("play", () => {
-    box.dataset.state = "playing";
-    play.setAttribute("aria-label", "Pausar vídeo de apresentação");
-  });
-  video.addEventListener("pause", () => {
-    box.dataset.state = "ready";
-    play.setAttribute("aria-label", "Reproduzir vídeo de apresentação");
-  });
+// Vídeo do topo: toca mudo em loop; o botão liga o som (conta como reprodução).
+function setupVideoTopo() {
+  const v = document.querySelector(".js-hero-video");
+  const fig = v.closest(".hero2__video");
+  const btn = document.querySelector(".js-hero-som");
+  v.src = VIDEO_TOPO.src;
+  v.poster = VIDEO_TOPO.poster;
+  fig.classList.toggle("hero2__video--deitado", !VIDEO_TOPO.vertical);
+  document.querySelector(".js-hero-legenda").textContent = VIDEO_TOPO.legenda;
+  let contou = false;
+  const setSom = (on) => {
+    v.muted = !on;
+    btn.setAttribute("aria-pressed", on);
+    btn.querySelector("span").textContent = on ? "som ligado" : "toque para ouvir";
+    if (on) {
+      v.play().catch(() => {});
+      if (!contou) { contou = true; track("video_play", { video: VIDEO_TOPO.src }); }
+    }
+  };
+  btn.addEventListener("click", () => setSom(v.muted));
+  v.addEventListener("click", () => setSom(v.muted));
+  // Só roda quando está na tela, para não gastar dados à toa.
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((e) => (e[0].isIntersecting ? v.play().catch(() => {}) : v.pause()), { threshold: 0.3 }).observe(v);
+  } else v.play().catch(() => {});
 }
 
 const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -88,7 +143,7 @@ function setupPhones() {
   const snd = box.querySelector(".js-snd");
   const sndLabel = snd.querySelector("span");
   const dotsBox = box.querySelector(".js-dots");
-  const hero = document.querySelector(".player__video");
+  const hero = document.querySelector(".js-hero-video");
 
   box.insertAdjacentHTML("afterbegin", VIDEOS.map((v, i) => `
     <div class="phone" aria-label="Vídeo ${i + 1}: ${v.label}, ${v.views} de views">
@@ -115,7 +170,7 @@ function setupPhones() {
   };
   const setSound = (on) => {
     sound = on;
-    if (on) { videos[cur].currentTime = 0; if (hero) hero.pause(); }
+    if (on) { videos[cur].currentTime = 0; if (hero) hero.muted = true; }
     sync();
   };
   const go = (i) => {
@@ -131,7 +186,7 @@ function setupPhones() {
 
   snd.addEventListener("click", () => setSound(!sound));
   dots.forEach((d, k) => d.addEventListener("click", () => go(k)));
-  if (hero) hero.addEventListener("play", () => setSound(false)); // nunca dois áudios ao mesmo tempo
+  if (hero) hero.addEventListener("volumechange", () => { if (!hero.muted && sound) setSound(false); }); // nunca dois áudios ao mesmo tempo
 
   let sx = null, sy = 0;
   box.addEventListener("pointerdown", (e) => { if (!e.target.closest(".phones__ctrl")) { sx = e.clientX; sy = e.clientY; } });
@@ -170,11 +225,11 @@ function setupReveal() {
   items.forEach((el) => io.observe(el));
 }
 
-// CTA fixo no celular: aparece depois do botão do herói e some na oferta.
+// CTA fixo no celular: aparece depois do botão do topo e some na oferta.
 function setupStickyCta() {
   const bar = document.querySelector(".sticky-cta");
-  const hero = document.querySelector(".hero__cta");
-  const offer = document.querySelector("#comece-agora");
+  const hero = document.querySelector(".hero2__cta");
+  const offer = document.querySelector("#oferta");
   if (!("IntersectionObserver" in window)) return;
   const seen = { hero: true, offer: false };
   const io = new IntersectionObserver((entries) => {
@@ -187,9 +242,10 @@ function setupStickyCta() {
 }
 
 document.querySelector(".js-year").textContent = new Date().getFullYear();
-setupPhones();
+setupConsent();
 setupCheckout();
-setupCountdown();
-setupPlayer();
+setupFunil();
+setupVideoTopo();
+setupPhones();
 setupReveal();
 setupStickyCta();
